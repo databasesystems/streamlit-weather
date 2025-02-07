@@ -3,3 +3,5 @@ pandas
 requests
 pydeck
 geopy
+folium
+streamlit_folium
