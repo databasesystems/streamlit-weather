@@ -1,6 +1,13 @@
 import streamlit as st
 
 st.title("Map with Weather Popup")
+with st.sidebar:  # Use 'with' to define sidebar content block
+    st.header("Sidebar Options")  # Add a header to the sidebar
+    st.write("Some text in the sidebar.")
+    st.button("A button in the sidebar") # Add a button
+    option = st.selectbox("Select an option", ["Option 1", "Option 2", "Option 3"]) # Add a selectbox
+
+
 
 # Open-Meteo API endpoint
 API_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
@@ -96,3 +103,6 @@ leaflet_code = f"""
 """
 
 st.components.v1.html(leaflet_code, width=700, height=500)
+st.write("Weather data is provided by open-meteo.com API")
+st.write("Maps are Leaflet maps")
+
