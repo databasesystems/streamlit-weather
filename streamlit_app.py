@@ -32,25 +32,39 @@ leaflet_code = f"""
 
             markerGroup.clearLayers();
 
-            fetch('{API_ENDPOINT}?latitude=' + lat + '&longitude=' + lon + '&current_weather=true&forecast_days=1')
+            // 1. Reverse Geocoding (Get Place Name)
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${{lat}}&lon=${{lon}}`) 
                 .then(response => response.json())
-                .then(data => {{
-                    if (data && data.current_weather) {{
-                        var temp = data.current_weather.temperature;
-                        var windspeed = data.current_weather.windspeed;
-
-                        // Construct popup content using concatenation
-                        var popupContent = "Lat: " +lat+ "<br>Lon: "+lon+"<br>Temperature: " + temp + " °C<br>Wind Speed: " + windspeed + " m/s";
-
-                        L.marker([lat, lon]).addTo(markerGroup).bindPopup(popupContent).openPopup();
-                    }} else {{
-                        alert("Could not retrieve weather data.");
-                        console.error("API Response:", data);
+                .then(geocodingData => {{
+                    var placeName = "Location Not Found";
+                    if (geocodingData && geocodingData.address) {{
+                        placeName = geocodingData.address.road || geocodingData.address.neighbourhood || 
+                                    geocodingData.address.city || geocodingData.address.town || 
+                                    geocodingData.address.village || "Location";
                     }}
-                }})
-                .catch(error => {{
-                    console.error("Error fetching data:", error);
-                    alert("An error occurred while fetching data.");
+
+                    // 2. Fetch Weather Data
+                    fetch('{API_ENDPOINT}?latitude=' + lat + '&longitude=' + lon + '&current_weather=true&forecast_days=1')
+                        .then(response => response.json())
+                        .then(data => {{
+                            if (data && data.current_weather) {{
+                                var temp = data.current_weather.temperature;
+                                var windspeed = data.current_weather.windspeed;
+
+                                // Construct popup content
+                                var popupContent = "<b>"+placeName+"</b><br>Lat: " +lat+ "<br>Lon: "+lon+
+                                                   "<br>Temperature: " + temp + " °C<br>Wind Speed: " + windspeed + " m/s";
+
+                                L.marker([lat, lon]).addTo(markerGroup).bindPopup(popupContent).openPopup();
+                            }} else {{
+                                alert("Could not retrieve weather data.");
+                                console.error("API Response:", data);
+                            }}
+                        }})
+                        .catch(error => {{
+                            console.error("Error fetching data:", error);
+                            alert("An error occurred while fetching data.");
+                        }});
                 }});
         }});
     </script>
