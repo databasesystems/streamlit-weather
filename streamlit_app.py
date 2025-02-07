@@ -81,9 +81,8 @@ leaflet_code = f"""
                                 var temp = data.current_weather.temperature;
                                 var windspeed = data.current_weather.windspeed;
 
-                                // Construct popup content
-                                var popupContent = "<b>"+placeName+"</b><br>Lat: " +lat+ "<br>Lon: "+lon+
-                                                   "<br>Temperature: " + temp + " °C<br>Wind Speed: " + windspeed + " m/s";
+                        var popupContent =   "<table><tr><td>Temp</td><td> <span style='font-size: 2em;'>" + temp + "°C </span></td></tr> <tr><td>Winds</td><td> " + windspeed+ " m/s</td></tr> <tr><td>Place</td><td><b>" + placeName + "</b></td></tr></table>";
+
 
                                 L.marker([lat, lon]).addTo(markerGroup).bindPopup(popupContent).openPopup();
                             }} else {{
