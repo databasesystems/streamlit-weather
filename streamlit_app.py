@@ -1,76 +1,61 @@
 import streamlit as st
-import requests
-import folium
-from streamlit_folium import st_folium
-from geopy.geocoders import Nominatim
 
-# Function to fetch weather data
-def get_weather_data(latitude, longitude):
-    base_url = "https://api.open-meteo.com/v1/forecast"
-    params = {
-        "latitude": latitude,
-        "longitude": longitude,
-        "current_weather": True,
-        "forecast_days": 1
-    }
-    try:
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        return data
-    except requests.exceptions.RequestException as e:
-        st.error(f"Error fetching weather data: {e}")
-        return None
+st.title("Map with Weather Popup")
 
-# Initialize geolocator
-geolocator = Nominatim(user_agent="weather_app")
+# Open-Meteo API endpoint
+API_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 
-st.title("Weather App")
+leaflet_code = f"""
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Leaflet Map</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        #map {{ height: 500px; width: 700px; }}
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+    <script>
+        var map = L.map('map').setView([51.5074, 0.1278], 10);
+        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }}).addTo(map);
 
-# Default map location
-default_latitude = 51.5074
-default_longitude = 0.1278
+        var markerGroup = L.layerGroup().addTo(map);
 
-# Initialize session state for storing the last clicked marker
-if "marker_data" not in st.session_state:
-    st.session_state.marker_data = None
+        map.on('click', function(e) {{
+            var lat = e.latlng.lat;
+            var lon = e.latlng.lng;
 
-# Display the map and capture clicks
-m = folium.Map(location=[default_latitude, default_longitude], zoom_start=10)
+            markerGroup.clearLayers();
 
-if st.session_state.marker_data:
-    lat = st.session_state.marker_data["lat"]
-    lon = st.session_state.marker_data["lon"]
-    popup = st.session_state.marker_data["popup"]
-    folium.Marker(location=[lat, lon], popup=popup).add_to(m)
+            fetch('{API_ENDPOINT}?latitude=' + lat + '&longitude=' + lon + '&current_weather=true&forecast_days=1')
+                .then(response => response.json())
+                .then(data => {{
+                    if (data && data.current_weather) {{
+                        var temp = data.current_weather.temperature;
+                        var windspeed = data.current_weather.windspeed;
 
-# Capture click events
-output = st_folium(m, width=700, height=500, key="map")
+                        // Construct popup content using concatenation
+                        var popupContent = "Lat: " +lat+ "<br>Lon: "+lon+"<br>Temperature: " + temp + " °C<br>Wind Speed: " + windspeed + " m/s";
 
-# Handle map clicks
-if output and output.get("last_clicked"):
-    clicked_lat = output["last_clicked"]["lat"]
-    clicked_lon = output["last_clicked"]["lng"]
+                        L.marker([lat, lon]).addTo(markerGroup).bindPopup(popupContent).openPopup();
+                    }} else {{
+                        alert("Could not retrieve weather data.");
+                        console.error("API Response:", data);
+                    }}
+                }})
+                .catch(error => {{
+                    console.error("Error fetching data:", error);
+                    alert("An error occurred while fetching data.");
+                }});
+        }});
+    </script>
+</body>
+</html>
+"""
 
-    # Get location name
-    try:
-        location = geolocator.reverse((clicked_lat, clicked_lon))
-        place_name = location.address if location else "Unknown Location"
-    except Exception as e:
-        place_name = f"Error: {e}"
-
-    # Fetch weather data
-    weather_data = get_weather_data(clicked_lat, clicked_lon)
-
-    if weather_data:
-        current = weather_data.get("current_weather", {})
-        temperature = current.get('temperature', 'N/A')
-        windspeed = current.get('windspeed', 'N/A')
-
-        popup_content = f"<b>{place_name}</b><br>Temperature: {temperature} °C<br>Wind Speed: {windspeed} m/s"
-
-        # Store marker data in session state
-        st.session_state.marker_data = {"lat": clicked_lat, "lon": clicked_lon, "popup": popup_content}
-
-    # **Force page rerun to update the displayed marker**
-    st.rerun()
+st.components.v1.html(leaflet_code, width=700, height=500)
