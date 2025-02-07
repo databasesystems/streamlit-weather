@@ -1,18 +1,16 @@
 import streamlit as st
-import pandas as pd
 import requests
-import pydeck as pdk
-import geopy
+import folium
+from streamlit_folium import st_folium
 from geopy.geocoders import Nominatim
 
-# Function to fetch weather data from Open-Meteo API
+# Function to fetch weather data
 def get_weather_data(latitude, longitude):
     base_url = "https://api.open-meteo.com/v1/forecast"
     params = {
         "latitude": latitude,
         "longitude": longitude,
         "current_weather": True,
-        "hourly": "temperature_2m,relativehumidity_2m,windspeed_10m",
         "forecast_days": 1
     }
     try:
@@ -24,98 +22,55 @@ def get_weather_data(latitude, longitude):
         st.error(f"Error fetching weather data: {e}")
         return None
 
-# Initialize geolocator for address lookup
-geolocator = Nominatim(user_agent="weather_app")  # Important: Provide a user agent
+# Initialize geolocator
+geolocator = Nominatim(user_agent="weather_app")
 
 st.title("Weather App")
 
-# Default map location (London)
+# Default map location
 default_latitude = 51.5074
 default_longitude = 0.1278
 
-# Initialize clicked_point in session state
-if "clicked_point" not in st.session_state:
-    st.session_state.clicked_point = None
+# Initialize session state for storing the last clicked marker
+if "marker_data" not in st.session_state:
+    st.session_state.marker_data = None
 
-# Create Pydeck map
-view_state = pdk.ViewState(latitude=default_latitude, longitude=default_longitude, zoom=10)
-layers = [
-    pdk.Layer(
-        "ScatterplotLayer",
-        data=[],  # Empty initially
-        get_position=lambda x: [x["lon"], x["lat"]],
-        get_radius=500,
-        get_fill_color=[255, 0, 0, 100],
-        pickable=True,
-    ),
-]
+# Display the map and capture clicks
+m = folium.Map(location=[default_latitude, default_longitude], zoom_start=10)
 
-# Display the Pydeck map
-st.pydeck_chart(
-    pdk.Deck(layers=layers, initial_view_state=view_state),
-    events=["click"],
-)
+if st.session_state.marker_data:
+    lat = st.session_state.marker_data["lat"]
+    lon = st.session_state.marker_data["lon"]
+    popup = st.session_state.marker_data["popup"]
+    folium.Marker(location=[lat, lon], popup=popup).add_to(m)
 
+# Capture click events
+output = st_folium(m, width=700, height=500, key="map")
 
-# Address input
-address = st.text_input("Enter an address:")
+# Handle map clicks
+if output and output.get("last_clicked"):
+    clicked_lat = output["last_clicked"]["lat"]
+    clicked_lon = output["last_clicked"]["lng"]
 
-if address:
+    # Get location name
     try:
-        location = geolocator.geocode(address)
-        if location:
-            latitude = location.latitude
-            longitude = location.longitude
-
-            # Update map view
-            view_state = pdk.ViewState(latitude=latitude, longitude=longitude, zoom=10)
-            st.pydeck_chart(pdk.Deck(layers=layers, initial_view_state=view_state)) # Update the map to the new location
-
-            weather_data = get_weather_data(latitude, longitude)
-            if weather_data:
-                # ... (display weather data - same as before)
-                st.subheader(f"Weather at: {latitude:.2f}, {longitude:.2f} (from address)")
-                current = weather_data.get("current_weather", {})
-                if current:
-                    st.write(f"Temperature: {current.get('temperature', 'N/A')} °C")
-                    st.write(f"Wind Speed: {current.get('windspeed', 'N/A')} m/s")
-
-                hourly = weather_data.get("hourly", {})
-                if hourly:
-                  st.subheader("Hourly Forecast")
-                  hourly_data = pd.DataFrame(hourly)
-                  st.dataframe(hourly_data)
-
-        else:
-            st.error("Address not found.")
+        location = geolocator.reverse((clicked_lat, clicked_lon))
+        place_name = location.address if location else "Unknown Location"
     except Exception as e:
-        st.error(f"Geocoding error: {e}")
+        place_name = f"Error: {e}"
 
+    # Fetch weather data
+    weather_data = get_weather_data(clicked_lat, clicked_lon)
 
+    if weather_data:
+        current = weather_data.get("current_weather", {})
+        temperature = current.get('temperature', 'N/A')
+        windspeed = current.get('windspeed', 'N/A')
 
-# Handle map clicks (same as before)
-if st.session_state.get("pydeck_click"):
-    click_info = st.session_state.pydeck_click
-    latitude = click_info.get("latitude")
-    longitude = click_info.get("longitude")
+        popup_content = f"<b>{place_name}</b><br>Temperature: {temperature} °C<br>Wind Speed: {windspeed} m/s"
 
-    if latitude and longitude:
-        st.session_state.clicked_point = {"lat": latitude, "lon": longitude}
+        # Store marker data in session state
+        st.session_state.marker_data = {"lat": clicked_lat, "lon": clicked_lon, "popup": popup_content}
 
-        weather_data = get_weather_data(latitude, longitude)
-
-        if weather_data:
-            st.subheader(f"Weather at: {latitude:.2f}, {longitude:.2f} (from click)") # Indicate it's from a click
-
-            current = weather_data.get("current_weather", {})
-            if current:
-                st.write(f"Temperature: {current.get('temperature', 'N/A')} °C")
-                st.write(f"Wind Speed: {current.get('windspeed', 'N/A')} m/s")
-
-            hourly = weather_data.get("hourly", {})
-            if hourly:
-              st.subheader("Hourly Forecast")
-              hourly_data = pd.DataFrame(hourly)
-              st.dataframe(hourly_data)
-
-        st.session_state.pydeck_click = None
+    # **Force page rerun to update the displayed marker**
+    st.rerun()
