@@ -20,9 +20,25 @@ leaflet_code = f"""
     <div id="map"></div>
     <script>
         var map = L.map('map').setView([51.5074, 0.1278], 10);
-        L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
+
+        // Define different tile layers
+        var osmLayer = L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }}).addTo(map);
+        }});
+
+        var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}', {{
+            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, GetImagery, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+        }});
+
+        // Add the default layer to the map
+        osmLayer.addTo(map);  // OpenStreetMap is the default
+
+        // Create a layer control
+        var baseLayers = {{
+            "OpenStreetMap": osmLayer,
+            "Satellite": satelliteLayer
+            }};
+        L.control.layers(baseLayers).addTo(map);
 
         var markerGroup = L.layerGroup().addTo(map);
 
@@ -38,9 +54,16 @@ leaflet_code = f"""
                 .then(geocodingData => {{
                     var placeName = "Location Not Found";
                     if (geocodingData && geocodingData.address) {{
-                        placeName = geocodingData.address.road || geocodingData.address.neighbourhood || 
-                                    geocodingData.address.city || geocodingData.address.town || 
-                                    geocodingData.address.village || "Location";
+                        placeName = geocodingData.address.city || geocodingData.address.town || geocodingData.address.village;
+                        if (!placeName) {{
+                            placeName = geocodingData.address.county || geocodingData.address.region;
+                        }}
+                        if (!placeName) {{
+                            placeName = geocodingData.address.country;
+                        }}
+                        if (!placeName) {{
+                            placeName = "Location";
+                        }}
                     }}
 
                     // 2. Fetch Weather Data
