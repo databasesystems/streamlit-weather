@@ -1,6 +1,6 @@
 import streamlit as st
 
-st.title("Weather map")
+st.title("Click weather map")
 st.subheader("Click on the map to see weather details")
 with st.sidebar:  # Use 'with' to define sidebar content block
     st.header("Weather map")  # Add a header to the sidebar
@@ -101,6 +101,6 @@ leaflet_code = f"""
 """
 
 st.components.v1.html(leaflet_code, width=700, height=500)
-st.write("Weather data is provided by open-meteo.com API")
-st.write("Maps are Leaflet maps")
-st.write("done by - www.databasesystems.info")
+st.write("Weather data is provided by FREE Weather API www.open-meteo.com ")
+st.write("Maps are built using Lafet JS Maps libarary https://github.com/Leaflet/Leaflet ")
+st.write("Developer- www.databasesystems.info")
