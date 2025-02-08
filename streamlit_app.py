@@ -50,7 +50,8 @@ leaflet_code = f"""
 
         map.on('click', function(e) {{
             var lat = e.latlng.lat;
-            var lon = e.latlng.lng;
+            var lon = (e.latlng.lng + 180) % 360 -180;
+            
 
             markerGroup.clearLayers();
 
