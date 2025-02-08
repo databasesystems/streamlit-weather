@@ -1,11 +1,10 @@
 import streamlit as st
 
-st.title("Map with Weather Popup")
+st.title("Weather map")
+st.subheader("Click on the map to see weather details")
 with st.sidebar:  # Use 'with' to define sidebar content block
-    st.header("Sidebar Options")  # Add a header to the sidebar
-    st.write("Some text in the sidebar.")
-    st.button("A button in the sidebar") # Add a button
-    option = st.selectbox("Select an option", ["Option 1", "Option 2", "Option 3"]) # Add a selectbox
+    st.header("Weather map")  # Add a header to the sidebar
+    st.write("more controls here...")
 
 
 
@@ -104,3 +103,4 @@ leaflet_code = f"""
 st.components.v1.html(leaflet_code, width=700, height=500)
 st.write("Weather data is provided by open-meteo.com API")
 st.write("Maps are Leaflet maps")
+st.write("done by - www.databasesystems.info")
