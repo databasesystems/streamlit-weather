@@ -1,79 +1,76 @@
 import streamlit as st
 
-st.title("Click weather map")
-st.subheader("Click on the map to see weather details")
-with st.sidebar:  # Use 'with' to define sidebar content block
-    st.header("Weather map")  # Add a header to the sidebar
-    st.write("more controls here...")
+# Streamlit page settings
+st.set_page_config(layout="wide")
 
+st.title("🌍 Interactive Weather Map")
+st.subheader("Click on the map to get weather details")
 
+with st.sidebar:
+    st.header("⚙️ Map Controls")
+    st.write("More controls will be added here.")
 
 # Open-Meteo API endpoint
 API_ENDPOINT = "https://api.open-meteo.com/v1/forecast"
 
+# HTML + JavaScript for Leaflet Map
 leaflet_code = f"""
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Leaflet Map</title>
+    <title>Weather Map</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <style>
-        #map {{ height: 500px; width: 700px; }}
+        .map-container {{
+            width: 100% !important;
+            height: 75vh !important;
+        }}
     </style>
 </head>
 <body>
-    <div id="map"></div>
+    <div id="map-container" class="map-container"></div>
     <script>
-        var map = L.map('map').setView([51.5074, 0.1278], 10);
+        var map = L.map('map-container').setView([51.5074, 0.1278], 6);
 
-        // Define different tile layers
+        // Tile Layers
         var osmLayer = L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }});
+            attribution: '&copy; OpenStreetMap contributors'
+        }}).addTo(map);
 
         var satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{{z}}/{{y}}/{{x}}', {{
-            attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, GetImagery, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            attribution: 'Tiles &copy; Esri'
         }});
 
-        // Add the default layer to the map
-        osmLayer.addTo(map);  // OpenStreetMap is the default
-
-        // Create a layer control
         var baseLayers = {{
             "OpenStreetMap": osmLayer,
             "Satellite": satelliteLayer
-            }};
+        }};
         L.control.layers(baseLayers).addTo(map);
 
         var markerGroup = L.layerGroup().addTo(map);
 
         map.on('click', function(e) {{
             var lat = e.latlng.lat;
-            var lon = (e.latlng.lng + 180) % 360 -180;
-            
+            var lon = (e.latlng.lng + 180) % 360 - 180; // Normalize longitude
 
             markerGroup.clearLayers();
 
-            // 1. Reverse Geocoding (Get Place Name)
-            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${{lat}}&lon=${{lon}}`) 
+            // Reverse Geocoding
+            fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${{lat}}&lon=${{lon}}`)
                 .then(response => response.json())
                 .then(geocodingData => {{
-                    var placeName = "Location Not Found";
+                    var placeName = "Unknown Location";
                     if (geocodingData && geocodingData.address) {{
-                        placeName = geocodingData.address.city || geocodingData.address.town || geocodingData.address.village;
-                        if (!placeName) {{
-                            placeName = geocodingData.address.county || geocodingData.address.region;
-                        }}
-                        if (!placeName) {{
-                            placeName = geocodingData.address.country;
-                        }}
-                        if (!placeName) {{
-                            placeName = "Location";
-                        }}
+                        placeName = geocodingData.address.road || 
+                                    geocodingData.address.suburb || 
+                                    geocodingData.address.city || 
+                                    geocodingData.address.county || 
+                                    geocodingData.address.country ||
+                                    "Unnamed Place";
                     }}
 
-                    // 2. Fetch Weather Data
+                    // Fetch Weather Data
                     fetch('{API_ENDPOINT}?latitude=' + lat + '&longitude=' + lon + '&current_weather=true&forecast_days=1')
                         .then(response => response.json())
                         .then(data => {{
@@ -81,27 +78,35 @@ leaflet_code = f"""
                                 var temp = data.current_weather.temperature;
                                 var windspeed = data.current_weather.windspeed;
 
-                        var popupContent =   "<table><tr><td>Temp</td><td> <span style='font-size: 2em;'>" + temp + "°C </span></td></tr> <tr><td>Winds</td><td> " + windspeed+ " m/s</td></tr> <tr><td>Place</td><td><b>" + placeName + "</b></td></tr></table>";
-
+                                var popupContent = `
+                                    <div style="font-family: Arial, sans-serif; font-size: 14px; padding: 5px; text-align: center;">
+                                        <b style="font-size: 16px; color: #333;">📍 ${{placeName}}</b>
+                                        <hr style="margin: 5px 0;">
+                                        <div style="display: flex; align-items: center; justify-content: space-between;">
+                                            <span style="font-size: 18px;">🌡️ <b>${{temp}}°C</b></span>
+                                            <span style="font-size: 18px;">🌬️ <b>${{windspeed}} m/s</b></span>
+                                        </div>
+                                    </div>
+                                `;
 
                                 L.marker([lat, lon]).addTo(markerGroup).bindPopup(popupContent).openPopup();
                             }} else {{
-                                alert("Could not retrieve weather data.");
-                                console.error("API Response:", data);
+                                console.error("Weather data unavailable.");
                             }}
                         }})
-                        .catch(error => {{
-                            console.error("Error fetching data:", error);
-                            alert("An error occurred while fetching data.");
-                        }});
-                }});
+                        .catch(error => console.error("Weather API Error:", error));
+                }})
+                .catch(error => console.error("Geocoding Error:", error));
         }});
     </script>
 </body>
 </html>
 """
 
-st.components.v1.html(leaflet_code, width=700, height=500)
-st.write("Weather data is provided by FREE Weather API www.open-meteo.com ")
-st.write("Maps are built using Lafet JS Maps libarary https://github.com/Leaflet/Leaflet ")
-st.write("Developer- www.databasesystems.info")
+# Display the map in Streamlit
+st.components.v1.html(leaflet_code, height=600)
+
+# Credits
+st.write("🌦️ Weather data: [Open-Meteo](https://open-meteo.com)")
+st.write("🗺️ Maps powered by [Leaflet.js](https://leafletjs.com)")
+st.write("👨‍💻 Developer: [Database Systems](https://www.databasesystems.info)")
