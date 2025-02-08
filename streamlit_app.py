@@ -104,4 +104,3 @@ leaflet_code = f"""
 st.components.v1.html(leaflet_code, width=700, height=500)
 st.write("Weather data is provided by open-meteo.com API")
 st.write("Maps are Leaflet maps")
-
